@@ -67,12 +67,15 @@ class UpBlock(nn.Module):
         return self.proj(x)
 
 """ U-net velocity network """
+
 class VelocityUNet(nn.Module): 
-  """ should predict velocity v(x_t, t) for Rectified Flow on 28x28 grayscale
+  """ 
+  should predict velocity v(x_t, t) for Rectified Flow on 28x28 grayscale
   images. 
   Archeticture: a shallow U-net with three resolution levels. 
   Channels: 32 -> 64 -> 128, time confitioning occurs at every residual block
   """
+
   def __init__(self, in_channels: int = 1, base_ch: int = 32, time_dim: int = 128):
     super().__init__()
     self.time_emb = SinusoidalTimeEmbedding(time_dim)
@@ -94,9 +97,49 @@ class VelocityUNet(nn.Module):
     # 14 -> 28
     self.up2 = UpBlock(base_ch * 2, base_ch,     base_ch,     time_dim)
     
+    self.out_norm = nn.GroupNorm(8, base_ch)
+    self.out_conv = nn.Conv2d(base_ch, in_channels, 1)
 
+def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+    """
+    Arguments: 
+        x: noisy image (B, 1, 28, 28)
+        t: time in [0, 1]  (B,)
+    Returns: 
+        velocity field (B, 1, 28, 28)
+    """
+    # (B, time_dim)
+    t_emb = self.time_emb(t)
 
+    # (B, 32, 28, 28)
+    h = self.in_conv(x)
+    # (B, 64, 14, 14)
+    h, skip1 = self.down1(h, t_emb)
+    # (B, 128, 7, 7)
+    h, skip2 = self.down2(h, t_emb)
 
+    h = self.mid1(h, t_emb)
+    h = self.mid2(h, t_emb)
 
+    # (B, 64, 14, 14) Note: skip2 is before down2
+    h = self.up1(h, skip2, t_emb)
+    # (B, 32, 28, 28)
+    h = self.up2(h, skip1, t_emb)
 
+    return self.out_conv(F.silu(self.out_norm(h)))
 
+# Rectified Flow Wrapper bit
+
+class RectifiedFlow(nn.Module):
+    """
+    Wraps the velocityunet with rectified flow training and sampling logic. 
+
+    Training goal: 
+        L = E_{x~data, z~N(0,I), t~U[0,1]} [ ||v_theta(x_t, t) - (x - z) ||^2]
+        where x_t = (1-t)*z + t*x
+
+    Sampling (Euler with a given schedule {t_k}):
+        x_{t_{k+1}} = x_{t_k} + (t_{k+1} - t_k) * v_theta(x_{t_k}, t_k)
+    """
+
+# insert logic blah blah
