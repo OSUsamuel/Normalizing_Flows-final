@@ -21,9 +21,27 @@ from schedules import (
 # configurations
 
 # increase to 50-100 for better quality
-EPOCHS       = 20
-
-# ...continue
+EPOCHS = 20
+BATCH = 128
+LR = 2e-4
+BASE_CH = 32
+TIME_DIM = 128
+# number of sampling steps to compare
+N_STEPS = 10
+GA_ITERS = 100
+GA_LR = 5e-4
+GA_C = 1.0
+GC_ITERS = 5
+GC_C = 10.0
+GC_POOL = 100
+GC_MAX_SHIFT = 0.15
+# samples to generate for the figure
+N_GEN = 64
+# points for the fme curve
+N_FME = 30
+SEED = 42
+DATA_DIR = "./data"
+OUT_DIR = Path("./demo_output")
 
 torch.manual_seed(SEED)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
