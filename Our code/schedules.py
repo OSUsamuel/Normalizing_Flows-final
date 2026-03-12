@@ -206,7 +206,128 @@ class GradientAdjustingSchedule:
 
         return result
 
-
 # GC implementation (algorithm 2)
 
+    """
+    this is a discrete-time adaptive schedule via greedy selection of the time points. 
+
+    At every gc iteration, the interior discretizations points t_k moves to the 
+    candidate in the abailable pool that minimizes this:
+        e(t_{k-1}, t_k) + E(t_k, t_{k+1}), while holding all the other points fixed.
+
+    Parameters:
+
+    available_points: list of float
+        All time points the model was trained on (embedding available points).
+        Must include 0.0 and 1.0.
+
+    init_schedule: list of float
+        Initial N-point schedule chosen from available_points.
+
+    eps_fn: callable float -> float
+        Flow matching error at t (only evaluated at available_points).
+
+    L_fn: callable, optional
+    C: float
+    n_iters: int
+    max_shift: float or None
+        If set, restricts candidates to within +/- max_shift of the current
+        point (this prevents large jumps caused by DAE/FME gap at small t).
+    """
+
+    def __init__(
+        self,
+        available_points: List[float],
+        init_schedule: List[float],
+        eps_fn: Callable[[float], float],
+        L_fn: Callable[[float], float] = L_lipschitz,
+        C: float = 10.0,
+        n_iters: int = 5,
+        max_shift: Optional[float] = None,
+    ):
+        self.available = sorted(available_points)
+        self.eps_fn = eps_fn
+        self.L_fn = L_fn
+        self.C = C
+        self.n_iters = n_iters
+        self.max_shift = max_shift
+
+        self._schedule = sorted(init_schedule)
+        assert self._schedule[0]  == self.available[0],  "Schedule must start at available[0]"
+        assert self._schedule[-1] == self.available[-1], "Schedule must end at available[-1]"
+
+    @property
+    def schedule(self) -> List[float]:
+        return list(self._schedule)
+    
+    def _candidates_for(self, k: int) -> List[float]:
+        """
+        valid candidates for position k: have to lie strictly between t_{k-1}
+        and t_{k+1}, also within available_points. Can aslo be constrained by max_shift
+        """
+
+        t_prec = self.schedule[k - 1]
+        t_next = self._schedule[k + 1]
+        t_cur = self._schedule[k]
+
+        cands = [
+            t for t in self.available
+            if t_prev < t < t_next
+
+        ]
+        if self.max_shift is not None:
+            cands = [
+                t for t in cands
+                if abs(t - t_cur) <= self.max_shift
+            ]
+
+        return cands
+    
+    def _local_EB(self, k: int, t: float) -> float:
+        t_prev = self._schedule[k - 1]
+        t_next = self._schedule[k + 1]
+        return (
+            compute_E(t_prev, t, self.eps_fn, self.L_fn, self.C)
+          + compute_E(t, t_next, self.eps_fn, self.L_fn, self.C)
+        )
+    
+    def run(self, verbose: bool = True) -> Tuple[List[float], List[float]]:
+        """
+        run the greedy choosing iterations. 
+
+        Returns:
+
+        final_schedule: sorted list of the N time points
+        eb_history: EB at start of each outer iteration
+        """
+
+        eb_history = [compute_EB(self._schedule, self.eps_fn, self.L_fn, self.C)]
+
+        for iteration in range(self.n_iters):
+            n_moved = 0
+            # skip the endpoints
+            for k in range(1, len(self._schedule) - 1): 
+                cands = self._candidates_for(k)
+                if not cands:
+                    continue
+                best_t = min(cands, key=lamba t: self._local_EB(k, t))
+                if best_t != self._schedule[k]:
+                    self._schedule[k] = best_t
+                    n_moved += 1
+            
+            eb = compute_EB(self._schedule, self.eps_fn, self.L_fn, self.C)
+            eb_history.append(eb)
+
+            if verbose:
+                print(f"  GC iter {iteration+1} | EB = {eb:.6f} | moved {n_moved} points")
+
+        return self.schedule, eb_history
+
+
 # schedule builder / utilities.
+def uniform_schedule(N: int, t0: float = 0.0, t1: float = 1.0) -> List[float]:
+    # linearly spaced schedule with N steps (N+1 points).
+    return [t0 + (t1 - t0) * i / N for i in range(N + 1)]
+
+def to_tensor(schedule: List[float], device: torch.device) -> torch.Tensor:
+    return torch.tensor(schedule, dtype=torch.float32, device=device)
