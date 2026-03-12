@@ -208,6 +208,7 @@ class GradientAdjustingSchedule:
 
 # GC implementation (algorithm 2)
 
+class GreedyChoosingSchedule
     """
     this is a discrete-time adaptive schedule via greedy selection of the time points. 
 
