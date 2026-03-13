@@ -2,6 +2,7 @@ import argparse
 import csv
 import os
 from pathlib import Path
+from scipy.linalg import sqrtm
 
 import torch
 import numpy as np
@@ -35,12 +36,14 @@ def compute_fid_approx(real: torch.Tensor, fake: torch.Tensor) -> float:
     diff  = mu_r - mu_f
     mean_term = float(diff @ diff)
 
-    # matrix square root via eigendecomposition (faster than scipy for small dims)
-    evals, evecs = np.linalg.eigh(sigma_r @ sigma_f)
-    evals = np.maximum(evals, 0)
-    sqrt_rf = evecs @ np.diag(np.sqrt(evals)) @ evecs.T
+    # corrected matrix square root using scipy oops
+    covmean = sqrtm(sigma_r @ sigma_f)
 
-    trace_term = float(np.trace(sigma_r + sigma_f - 2 * sqrt_rf))
+    # we dont want the imaginary parts 
+    if np.iscomplexobj(covmean):
+        covmean = covmean.real
+
+    trace_term = float(np.trace(sigma_r + sigma_f -2 * covmean))
     return mean_term + trace_term
 
 # fme grid measurement 
