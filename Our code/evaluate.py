@@ -85,7 +85,7 @@ def plot_samples(samples: torch.Tensor, title: str, ax: plt.Axes, n: int = 16):
     ax.set_title(title, fontsize=10)
     ax.axis("off")
 
-    def plot_schedule(schedule: list, eb: float, label: str, ax: plt.Axes, color="C0"):
+def plot_schedule(schedule: list, eb: float, label: str, ax: plt.Axes, color="C0"):
     ax.scatter(schedule, [0] * len(schedule), marker="|", s=200,
                linewidths=1.5, color=color, label=f"{label} (EB={eb:.4f})")
     ax.set_xlim(-0.02, 1.02)
@@ -148,7 +148,7 @@ def main():
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # load the model
-    kpt = torch.load(args.ckpt, map_location=device)
+    ckpt = torch.load(args.ckpt, map_location=device)
     net  = VelocityUNet(in_channels=1, base_ch=args.base_ch, time_dim=args.time_dim).to(device)
     net.load_state_dict(ckpt["state_dict"])
     model = RectifiedFlow(net).to(device)

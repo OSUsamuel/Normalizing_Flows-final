@@ -208,7 +208,7 @@ class GradientAdjustingSchedule:
 
 # GC implementation (algorithm 2)
 
-class GreedyChoosingSchedule
+class GreedyChoosingSchedule:
     """
     this is a discrete-time adaptive schedule via greedy selection of the time points. 
 
@@ -267,7 +267,7 @@ class GreedyChoosingSchedule
         and t_{k+1}, also within available_points. Can aslo be constrained by max_shift
         """
 
-        t_prec = self.schedule[k - 1]
+        t_prev = self.schedule[k - 1]
         t_next = self._schedule[k + 1]
         t_cur = self._schedule[k]
 
@@ -311,7 +311,7 @@ class GreedyChoosingSchedule
                 cands = self._candidates_for(k)
                 if not cands:
                     continue
-                best_t = min(cands, key=lamba t: self._local_EB(k, t))
+                best_t = min(cands, key=lambda t: self._local_EB(k, t))
                 if best_t != self._schedule[k]:
                     self._schedule[k] = best_t
                     n_moved += 1
