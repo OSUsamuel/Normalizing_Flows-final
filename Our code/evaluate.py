@@ -300,7 +300,7 @@ def main():
     print(f"Schedules saved to {sched_path}")
 
     # the big figure lol
-    fig = plt.figure(figsize=(18, 14))
+    fig = plt.figure(figsize=(22, 18))
     fig.suptitle(
         f"Adaptive Time-Stepping for Rectified Flow on MNIST\n"
         f"(checkpoint: {Path(args.ckpt).name}, N={N} steps, smoothness={args.smoothness})",
